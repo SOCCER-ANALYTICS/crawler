@@ -13,5 +13,10 @@ while x <= 22:
     varXpath = """//*[@id="player-statistics-tab-summary"]/table/tbody/tr["""+str(x)+"""]"""
     posts = driver.find_elements_by_xpath(varXpath)
     for post in posts:
+        #splitStats = post.split( )
+        #if len(splitStats) == 11:
+	    #    print(splitStats[0]+' '+splitStats[1],splitStats[2],splitStats[3],splitStats[4],splitStats[5],splitStats[6],splitStats[7],splitStats[8],splitStats[9],splitStats[10])
+        #else:
+	    #    print(splitStats[0],splitStats[1],splitStats[2],splitStats[3],splitStats[4],splitStats[5],splitStats[6],splitStats[7],splitStats[8],splitStats[9])	
         print(post.text)
     x = x + 1  
