@@ -1,4 +1,3 @@
-#Sofa score
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 
@@ -18,12 +17,17 @@ while x <= 22:
         #print(post.text)
         splitStats = post.text.split( )
         if len(splitStats) == 11:
-	        print(splitStats[0]+' '+splitStats[1]+','+splitStats[2]+','+splitStats[3]+','+splitStats[4]+','+splitStats[5]+','+splitStats[6]+','+splitStats[7]+','+splitStats[8]+','+splitStats[9]+','+splitStats[10])
+	        print(splitStats[0]+' '+splitStats[1]+','+splitStats[2]+''+splitStats[3]+','+splitStats[4]+','+splitStats[5]+''+splitStats[6]+','+splitStats[7]+','+splitStats[8]+','+splitStats[9]+','+splitStats[10])
         else:
-	        print(splitStats[0]+','+splitStats[1]+','+splitStats[2]+','+splitStats[3]+','+splitStats[4]+','+splitStats[5]+','+splitStats[6]+','+splitStats[7]+','+splitStats[8]+','+splitStats[9])	
+	        print(splitStats[0]+','+splitStats[1]+''+splitStats[2]+','+splitStats[3]+','+splitStats[4]+','+splitStats[5]+''+splitStats[6]+','+splitStats[7]+','+splitStats[8]+','+splitStats[9])	
     x = x + 1 
 
-#incidentes
+#Conexão com BD 
+#conn = psycopg2.connect("host='localhost' dbname='sofascore' user='postgres' password='123'")
+#cursor = conn.cursor()
+#
+#cursor.execute("INSERT INTO jogos VALUES('teste3')")
+#conn.commit()
 
 incidentes = driver.find_elements_by_class_name("incidents-container")
 for incidente in incidentes:
