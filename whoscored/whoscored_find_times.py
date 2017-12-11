@@ -42,7 +42,9 @@ with open(SCRIPT_NAME+"_INPUT.txt", "r") as infile:
 		#Captura os torneios
 		for option in driver.find_element_by_id("tournaments").find_elements_by_tag_name("option"):
 			torneio_data = option.get_attribute("value").split("Tournaments")[1].split("/")
-			_funcoes.db_insert(conn, "torneio", {'id': torneio_data[1], 'nome': torneio_data[2], 'id_regiao': infile_data[0]}, "[Torneio] -> [Inserindo..]", LOG, LOG_FILE, True)
+			torneio_nome = " ".join(torneio_data[2].split("-")[1:])
+			if torneio_nome != "":
+				_funcoes.db_insert(conn, "torneio", {'id': torneio_data[1], 'nome': torneio_nome, 'id_regiao': infile_data[0]}, "[Torneio] -> [Inserindo..]", LOG, LOG_FILE, True)
 		############################################
 		## Captura os ids dos times no campeonato ##
 		############################################

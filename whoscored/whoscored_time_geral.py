@@ -41,7 +41,7 @@ profile.set_preference("network.proxy.socks_port", 9050)
 driver = webdriver.Firefox(firefox_profile=profile)
 
 #Abre o arquivo de restauracao, se houve erro na execucao passada
-restore_file = '.'+SCRIPT_NAME+".json"
+restore_file = '.'+SCRIPT_NAME+"_"+team_id+".json"
 if os.path.isfile(restore_file):
 	with open(restore_file) as infile:
 		restore_data = json.load(infile)

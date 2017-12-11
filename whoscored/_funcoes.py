@@ -112,6 +112,19 @@ def db_insert(conn, table_name, insert_data, LOG_MSG, LOG, LOG_FILE, NEXT_LINE, 
 	cur.close()
 	return query_ok
 
+#Executa uma query no bd
+def db_exec(conn, query, query_data, LOG_MSG, LOG, LOG_FILE, NEXT_LINE):
+	data = None
+	cur = conn.cursor()
+	try:
+		cur.execute(query, query_data)
+		log(LOG_MSG+" -> ["+(query % query_data)+"]", LOG, NEXT_LINE, LOG_FILE)
+		data = cur.fetchall()
+	except psycopg2.Error as e:
+		log(LOG_MSG+" -> ["+e.pgerror+"]", LOG, NEXT_LINE, LOG_FILE)
+	cur.close()
+	return data
+
 #Tenta restartar o driver ate 5 vezes
 def restart(driver, profile, url, delay, LOG, LOG_FILE):
 	retries = 0
@@ -127,6 +140,7 @@ def restart(driver, profile, url, delay, LOG, LOG_FILE):
 			driver[-1].get(url)
 			break
 		except Exception as e:
+			print e
 			if retries > 4:
 				log(" ->  [Erro Critico ao reiniciar o driver]", LOG, True, LOG_FILE)
 				quit()
