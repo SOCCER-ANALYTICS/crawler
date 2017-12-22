@@ -1,0 +1,49 @@
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from datetime import date
+import psycopg2
+from selenium.common.exceptions import NoSuchElementException        
+
+#Funcao para validar se a xpath é válida
+def check_exists_by_xpath(xpath):
+    try:
+        driver.find_element_by_xpath(xpath)
+    except NoSuchElementException:
+        return False
+    return True
+
+#Abre Browser
+driver = webdriver.Firefox()
+driver.get("https://www.sofascore.com/pt/futebol/2017-12-20")
+
+hoje = date.today()
+x = 1
+divcamp = 1
+divjogo = 1 
+y = 0 
+conn = psycopg2.connect("host='localhost' dbname='sofascore' user='postgres' password='123'")
+
+while y == 0:
+    z = 0
+    while z == 0:
+        xpath = """//*[@id="pjax-container-main"]/div/div[2]/div/div[2]/div[2]/div[1]/div["""+str(divcamp)+"""]/div[2]/a["""+str(divjogo)+"""]"""
+        if check_exists_by_xpath(xpath):
+            driver.find_element_by_xpath(xpath).click()
+            gethref = driver.find_element_by_xpath("/html/body/div[4]/div/div[2]/div/div[3]/div/div/div[1]/div[1]/a").get_attribute("href")
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO tb_link_partida (link) VALUES ('"+gethref+"')")
+            conn.commit()
+            #print gethref
+            divjogo = divjogo+1
+        else:
+            divcamp = divcamp+1
+            divjogo = 1
+            z = 1
+        if check_exists_by_xpath("""//*[@id="pjax-container-main"]/div/div[2]/div/div[2]/div[2]/div[1]/div["""+str(divcamp)+"""]"""):
+            print '' 
+        else:
+            y=1    
+
+
+   
+   
