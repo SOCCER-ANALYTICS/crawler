@@ -19,8 +19,8 @@ import _funcoes
 SCRIPT_NAME = sys.argv[0].split(".")[0]
 SCRIPT_BEGIN = datetime.now()
 LOG = True if "-v" in sys.argv or "-f" in sys.argv else False
-LOG_FILE = open(str(SCRIPT_BEGIN.hour)+"_"+str(SCRIPT_BEGIN.minute)+"_"+str(SCRIPT_BEGIN.second)+"__"+str(SCRIPT_BEGIN.day)+"_"+str(SCRIPT_BEGIN.month)+"_"+str(SCRIPT_BEGIN.year)+"__"+SCRIPT_NAME+".txt", "w") if "-f" in sys.argv else None
-MONTH_DIC = {'JAN': 1, 'FEV': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6, 'JUL': 7, 'AGO': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12}
+LOG_FILE = open("logs/"+str(SCRIPT_BEGIN.hour)+"_"+str(SCRIPT_BEGIN.minute)+"_"+str(SCRIPT_BEGIN.second)+"__"+str(SCRIPT_BEGIN.day)+"_"+str(SCRIPT_BEGIN.month)+"_"+str(SCRIPT_BEGIN.year)+"__"+SCRIPT_NAME+".txt", "w") if "-f" in sys.argv else None
+MONTH_DIC = {'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6, 'JUL': 7, 'AGO': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12}
 VALID_TOURNAMENTS = ['Premier League', 'League 1', 'UEFA Champions League', 'UEFA Europa League']
 
 _funcoes.log("[Iniciando Spyder]", LOG, False, LOG_FILE)
@@ -129,6 +129,10 @@ while MONTH_DIC[date[0]] == SCRIPT_BEGIN.month:
 		conn.close()
 		quit()
 
+_funcoes.log("[Nada mais a fazer]", LOG, False, LOG_FILE)
 driver.quit()
+_funcoes.log("-> [Fechando PhantomJS]", LOG, False, LOG_FILE)
 conn.close()
+_funcoes.log("-> [Fechando DB]", LOG, False, LOG_FILE)
 os.remove(restore_file)
+_funcoes.log("-> [Removendo Restore_File]", LOG, True, LOG_FILE)
