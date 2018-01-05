@@ -19,7 +19,7 @@ import _funcoes
 SCRIPT_NAME = sys.argv[0].split(".")[0]
 SCRIPT_BEGIN = datetime.now()
 LOG = True if "-v" in sys.argv or "-f" in sys.argv else False
-LOG_FILE = open("logs/"+str(SCRIPT_BEGIN.hour)+"_"+str(SCRIPT_BEGIN.minute)+"_"+str(SCRIPT_BEGIN.second)+"__"+str(SCRIPT_BEGIN.day)+"_"+str(SCRIPT_BEGIN.month)+"_"+str(SCRIPT_BEGIN.year)+"__"+SCRIPT_NAME+".txt", "w") if "-f" in sys.argv else None
+LOG_FILE = open("logs/"+str(SCRIPT_BEGIN.day)+"_"+str(SCRIPT_BEGIN.month)+"_"+str(SCRIPT_BEGIN.year)+"__"+str(SCRIPT_BEGIN.hour)+"_"+str(SCRIPT_BEGIN.minute)+"_"+str(SCRIPT_BEGIN.second)+"__"+SCRIPT_NAME+".txt", "w") if "-f" in sys.argv else None
 MONTH_DIC = {'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6, 'JUL': 7, 'AGO': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12}
 VALID_TOURNAMENTS = ['Premier League', 'League 1', 'UEFA Champions League', 'UEFA Europa League']
 
@@ -28,23 +28,17 @@ try:
 	conn = psycopg2.connect("dbname='whoscored' user='postgres' host='localhost' password='12345678'")
 	_funcoes.log("-> [Postgresql Ok]", LOG, False, LOG_FILE)
 except:
-	_funcoes.log("-> [Postgresql Error]", LOG, True, LOG_FILE)
-	quit()
+	_funcoes.kill_script(" -> [Postgresql Error]", None, None, LOG, LOG_FILE)
 
 #Configura Proxy Tor
-profile = webdriver.FirefoxProfile()
-profile.set_preference("network.proxy.type", 1)
-profile.set_preference("network.proxy.http", "127.0.0.1")
-profile.set_preference("network.proxy.http_port", 9050)
-profile.set_preference("network.proxy.ssl", "127.0.0.1")
-profile.set_preference("network.proxy.ssl_port", 9050)
-profile.set_preference("network.proxy.socks", "127.0.0.1")
-profile.set_preference("network.proxy.socks_port", 9050)
-driver = webdriver.Firefox(firefox_profile=profile)
+options = webdriver.ChromeOptions()
+options.add_argument('headless')
+options.add_argument('window-size=1366x768')
+options.add_argument('--proxy-server=127.0.0.1:9050')
+options.add_argument('--log-level=3')
+driver = webdriver.Chrome(chrome_options=options)
 
-# driver = webdriver.PhantomJS(service_args=['--proxy=127.0.0.1:9050', '--proxy-type=socks5'])
-# driver.set_window_size(1920, 1080)
-_funcoes.log("-> [Phantomjs Ok]", LOG, False, LOG_FILE)
+_funcoes.log(" -> [ChromeDriver Ok]", LOG, False, LOG_FILE)
 
 #Abre o arquivo de restauracao, se houve erro na execucao passada
 restore_file = 'restores/.'+SCRIPT_NAME+".json"
@@ -72,10 +66,7 @@ if restore_data != None:
 	try:
 		WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.XPATH, '//*[@id="livescores"]/table')))
 	except TimeoutException:
-		_funcoes.log("(*) Timeout ao achar o ultimo dia", LOG, True, LOG_FILE)
-		driver.quit()
-		conn.close()
-		quit()
+		_funcoes.kill_script("(*) Timeout ao achar o ultimo dia", driver, conn, LOG, LOG_FILE)
 else:
 	#Captura as hora das partidas, times e regioes
 	date = _funcoes.break_date_long(_funcoes.filter_data(driver.find_element_by_xpath('//*[@id="date-config-toggle-button"]/span[1]').text))
@@ -124,14 +115,11 @@ while MONTH_DIC[date[0]] == SCRIPT_BEGIN.month:
 		#Salva o estado do crawler
 		_funcoes.write_restore_file(restore_file, {'date': date})
 	except TimeoutException:
-		_funcoes.log("(*) Timeout ir para o proximo dia", LOG, True, LOG_FILE)
-		driver.quit()
-		conn.close()
-		quit()
+		_funcoes.kill_script("(*) Timeout ir para o proximo dia", driver, conn, LOG, LOG_FILE)
 
 _funcoes.log("[Nada mais a fazer]", LOG, False, LOG_FILE)
 driver.quit()
-_funcoes.log("-> [Fechando PhantomJS]", LOG, False, LOG_FILE)
+_funcoes.log("-> [Fechando ChromeDriver]", LOG, False, LOG_FILE)
 conn.close()
 _funcoes.log("-> [Fechando DB]", LOG, False, LOG_FILE)
 os.remove(restore_file)

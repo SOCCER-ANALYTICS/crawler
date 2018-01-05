@@ -154,6 +154,14 @@ def db_exec(conn, query, query_data, LOG_MSG, LOG, LOG_FILE, NEXT_LINE):
 	cur.close()
 	return data
 
+def kill_script(error_message, driver, conn, LOG, LOG_FILE):
+	log(error_message, LOG, True, LOG_FILE)
+	if driver != None:
+		driver.quit()
+	if conn != None:
+		conn.close()
+	quit()
+
 #Tenta restartar o driver ate 5 vezes
 # def restart(driver, profile, url, delay, LOG, LOG_FILE):
 # 	retries = 0

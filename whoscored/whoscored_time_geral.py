@@ -1,8 +1,9 @@
 from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException    
-from selenium.common.exceptions import TimeoutException 
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import ElementNotInteractableException
 from selenium.webdriver.common.by import By
 import psycopg2
 import sys
@@ -19,16 +20,16 @@ import _funcoes
 SCRIPT_NAME = sys.argv[0].split(".")[0]
 SCRIPT_BEGIN = datetime.now()
 LOG = True if "-v" in sys.argv or "-f" in sys.argv else False
-LOG_FILE = open(str(SCRIPT_BEGIN.hour)+"_"+str(SCRIPT_BEGIN.minute)+"_"+str(SCRIPT_BEGIN.second)+"__"+str(SCRIPT_BEGIN.day)+"_"+str(SCRIPT_BEGIN.month)+"_"+str(SCRIPT_BEGIN.year)+"__"+SCRIPT_NAME+".txt", "w") if "-f" in sys.argv else None
+LOG_FILE = open("logs/"+str(SCRIPT_BEGIN.day)+"_"+str(SCRIPT_BEGIN.month)+"_"+str(SCRIPT_BEGIN.year)+"__"+str(SCRIPT_BEGIN.hour)+"_"+str(SCRIPT_BEGIN.minute)+"_"+str(SCRIPT_BEGIN.second)+"__"+SCRIPT_NAME+".txt", "w") if "-f" in sys.argv else None
 players_basic = []
+tournament_year = None
 
 _funcoes.log("[Iniciando Spyder]", LOG, False, LOG_FILE)
 try:
 	conn = psycopg2.connect("dbname='whoscored' user='postgres' host='localhost' password='12345678'")
 	_funcoes.log(" -> [Postgresql Ok]", LOG, False, LOG_FILE)
 except:
-	_funcoes.log(" -> [Postgresql Error]", LOG, True, LOG_FILE)
-	quit()
+	_funcoes.kill_script(" -> [Postgresql Error]", None, None, LOG, LOG_FILE)
 
 ###########################
 ## Captura dados do time ##
@@ -38,24 +39,17 @@ if len(team_id) == 1:
 	_funcoes.log(" -> [Achado "+str(team_id[0][0])+" | "+team_id[0][1]+"]", LOG, False, LOG_FILE)
 	team_id = str(team_id[0][0])
 else:
-	_funcoes.log(" -> [Nenhum Time p/ Atualizar]", LOG, True, LOG_FILE)
-	conn.close()
-	quit()
+	_funcoes.kill_script(" -> [Nenhum Time p/ Atualizar]", None, conn, LOG, LOG_FILE)
 
 #Configura Proxy Tor
-profile = webdriver.FirefoxProfile()
-profile.set_preference("network.proxy.type", 1)
-profile.set_preference("network.proxy.http", "127.0.0.1")
-profile.set_preference("network.proxy.http_port", 9050)
-profile.set_preference("network.proxy.ssl", "127.0.0.1")
-profile.set_preference("network.proxy.ssl_port", 9050)
-profile.set_preference("network.proxy.socks", "127.0.0.1")
-profile.set_preference("network.proxy.socks_port", 9050)
-driver = webdriver.Firefox(firefox_profile=profile)
+options = webdriver.ChromeOptions()
+options.add_argument('headless')
+options.add_argument('window-size=1366x768')
+options.add_argument('--proxy-server=127.0.0.1:9050')
+options.add_argument('--log-level=3')
+driver = webdriver.Chrome(chrome_options=options)
 
-# driver = webdriver.PhantomJS(service_args=['--proxy=127.0.0.1:9050', '--proxy-type=socks5'])
-# driver.set_window_size(1120, 550)
-_funcoes.log(" -> [Phantomjs Ok]", LOG, False, LOG_FILE)
+_funcoes.log(" -> [ChromeDriver Ok]", LOG, False, LOG_FILE)
 
 #Abre o arquivo de restauracao, se houve erro na execucao passada
 restore_file = 'restores/.'+SCRIPT_NAME+"_"+team_id+".json"
@@ -100,26 +94,34 @@ else:
 	]
 	table_squad_subcategories = []
 
+#Captura o ano do torneio do time e a regiao do torneio
+try:
+	tournament_year = driver.find_element_by_xpath('//*[@id="layout-content-wrapper"]/div[3]/div[3]/div/div[3]/dl/dd[2]').text.split("/")[1]
+	region_id = driver.find_element_by_xpath('//*[@id="breadcrumb-nav"]/a').get_attribute("href").split("/")[4]
+except NoSuchElementException:
+	_funcoes.kill_script("(*) Painel lateral direito nao carregou", driver, conn, LOG, LOG_FILE)
+
 #Na tabela, muda para detalhes
-#ARRUMAR AQUI PODE SER QUE NAO EXISTA A PARTE DE DETALHES
-driver.find_element_by_id("team-squad-stats").find_element_by_xpath('//*[@id="team-squad-stats-options"]/li[5]/a').click()
+try:
+	driver.find_element_by_id("team-squad-stats").find_element_by_xpath('//*[@id="team-squad-stats-options"]/li[5]/a').click()
+except ElementNotInteractableException:
+	_funcoes.db_insert(conn, "team", {'id': team_id}, "[Atualizando data_seen do team] -> [Inserindo..]", LOG, LOG_FILE, True, {'current_seen_date': str(SCRIPT_BEGIN.year)+"-"+str(SCRIPT_BEGIN.month)+"-"+str(SCRIPT_BEGIN.day)})
+	_funcoes.kill_script("(*)(*) O time nao possui dados o suficiente", driver, conn, LOG, LOG_FILE)
+except NoSuchElementException:
+	_funcoes.db_insert(conn, "team", {'id': team_id}, "[Atualizando data_seen do team] -> [Inserindo..]", LOG, LOG_FILE, True, {'current_seen_date': str(SCRIPT_BEGIN.year)+"-"+str(SCRIPT_BEGIN.month)+"-"+str(SCRIPT_BEGIN.day)})
+	_funcoes.kill_script("(*)(*) O time nao possui nenhum dado", driver, conn, LOG, LOG_FILE)
+
 try:
 	accumulation_select = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "statsAccumulationType")))
 except TimeoutException:
-	_funcoes.log("(*) Timeout ao mudar para a aba 'Detalhes'", LOG, True, LOG_FILE)
-	driver.quit()
-	conn.close()
-	quit()
+	_funcoes.kill_script("(*) Timeout ao mudar para a aba 'Detalhes'", driver, conn, LOG, LOG_FILE)
 
 #Seleciona os dados para quantidade 'Total'
 accumulation_select.find_element_by_xpath(".//option[4]").click()
 try:
 	WebDriverWait(driver.find_element_by_id("team-squad-stats").find_element_by_id("team-squad-stats-detailed"), 10).until(EC.invisibility_of_element_located((By.ID, "statistics-table-detailed-loading")))
 except TimeoutException:
-	_funcoes.log("(*) Timeout ao alterar tipo dos dados para 'Total'", LOG, True, LOG_FILE)
-	driver.quit()
-	conn.close()
-	quit()
+	_funcoes.kill_script("(*) Timeout ao alterar tipo dos dados para 'Total'", driver, conn, LOG, LOG_FILE)
 
 #-------------------------Captura os torneios do time--------------------------#
 if len(table_squad_tournaments) == 0:
@@ -133,8 +135,18 @@ if len(table_squad_tournaments) == 0:
 			"visited": False,
 			"loaded": True if tournament_index == 1 else False
 		})
+		_funcoes.log("[Verifica "+table_squad_tournaments[-1]["id"]+" | "+table_squad_tournaments[-1]["name"]+"]", LOG, False, LOG_FILE)
+		#Verifica se o torneio ja existe no bd
+		tournament_check = _funcoes.db_exec(conn, "SELECT id FROM tournament WHERE id=%s", (table_squad_tournaments[-1]["id"],), "", LOG, LOG_FILE, False)
+		if len(tournament_check) == 0:
+			_funcoes.db_insert(conn, "tournament", {
+				'id': table_squad_tournaments[-1]["id"],
+				'region_id': region_id,
+				'name': table_squad_tournaments[-1]["name"],
+			}, " -> [+ _tournament_]", LOG, LOG_FILE, True)
+		else:
+			_funcoes.log("-> [Achado]", LOG, True, LOG_FILE)
 		tournament_index += 1
-_funcoes.log(table_squad_tournaments, LOG, True, LOG_FILE)
 
 #--------------------------------Para cada torneio-----------------------------#
 tournament_index = 0
@@ -233,7 +245,7 @@ while not _funcoes.check_all_visited(table_squad_tournaments):
 					_funcoes.db_insert(conn, "player_team", {
 						'player_id': player_id,
 						'team_id': team_id,
-						'year': SCRIPT_BEGIN.year,
+						'year': tournament_year,
 						'active': "0" if "not-current-player" in _funcoes.no_stale_data('driver.find_element_by_id("team-squad-stats").find_element_by_id("team-squad-stats-detailed").find_element_by_id("player-table-statistics-body").find_element_by_xpath("./tr['+str(player_tr_index)+']").get_attribute("class")', driver, conn, LOG, LOG_FILE) else "1"
 					}, " -> [+ _jogador_time_]", LOG, LOG_FILE, False)
 				#Captura os dados da categoria, subcategoria do jogador
@@ -241,7 +253,7 @@ while not _funcoes.check_all_visited(table_squad_tournaments):
 				_funcoes.db_insert(conn, "player_attr", {
 					'player_id': player_id,
 					'tournament_id': table_squad_tournaments[tournament_index]["id"],
-					'year': str(SCRIPT_BEGIN.year),
+					'year': tournament_year,
 					'matchesplayed': _funcoes.filter_data(_funcoes.no_stale_data('driver.find_element_by_id("team-squad-stats").find_element_by_id("team-squad-stats-detailed").find_element_by_id("player-table-statistics-body").find_element_by_xpath("./tr['+str(player_tr_index)+']").find_element_by_xpath("./td[6]").get_attribute("innerHTML")', driver, conn, LOG, LOG_FILE)),
 					'fieldtime': _funcoes.filter_data(_funcoes.no_stale_data('driver.find_element_by_id("team-squad-stats").find_element_by_id("team-squad-stats-detailed").find_element_by_id("player-table-statistics-body").find_element_by_xpath("./tr['+str(player_tr_index)+']").find_element_by_xpath("./td[7]").get_attribute("innerHTML")', driver, conn, LOG, LOG_FILE)),
 					'rating': _funcoes.filter_data(_funcoes.no_stale_data('driver.find_element_by_id("team-squad-stats").find_element_by_id("team-squad-stats-detailed").find_element_by_id("player-table-statistics-body").find_element_by_xpath("./tr['+str(player_tr_index)+']").find_element_by_xpath("./td['+str(player_tds_qtd)+']").get_attribute("innerHTML")', driver, conn, LOG, LOG_FILE))
@@ -254,7 +266,7 @@ while not _funcoes.check_all_visited(table_squad_tournaments):
 					if player_td_class != "" and player_td_class != "pn" and player_td_class != "minsPlayed" and player_td_class != "rating" and player_td_class not in player_data_adv:
 						player_data_adv[player_td_class] = _funcoes.filter_data(_funcoes.no_stale_data('driver.find_element_by_id("team-squad-stats").find_element_by_id("team-squad-stats-detailed").find_element_by_id("player-table-statistics-body").find_element_by_xpath("./tr['+str(player_tr_index)+']").find_element_by_xpath("./td['+str(player_td_index)+']").get_attribute("innerHTML")', driver, conn, LOG, LOG_FILE))
 					player_td_index += 1
-				_funcoes.db_insert(conn, "player_attr", {'player_id': player_id,'tournament_id': table_squad_tournaments[tournament_index]["id"],'year': SCRIPT_BEGIN.year}, " -> [... _jogador_attr_]", LOG, LOG_FILE, False, player_data_adv)
+				_funcoes.db_insert(conn, "player_attr", {'player_id': player_id,'tournament_id': table_squad_tournaments[tournament_index]["id"],'year': tournament_year}, " -> [... _jogador_attr_]", LOG, LOG_FILE, False, player_data_adv)
 				player_tr_index += 1
 				_funcoes.log("", LOG, True, LOG_FILE)
 			table_squad_subcategories[subcategory_index]["visited"] = True
@@ -273,6 +285,10 @@ while not _funcoes.check_all_visited(table_squad_tournaments):
 	tournament_index = (tournament_index+1) % len(table_squad_tournaments)
 
 _funcoes.db_insert(conn, "team", {'id': team_id}, "[Atualizando data_seen do team] -> [Inserindo..]", LOG, LOG_FILE, True, {'current_seen_date': str(SCRIPT_BEGIN.year)+"-"+str(SCRIPT_BEGIN.month)+"-"+str(SCRIPT_BEGIN.day)})
+_funcoes.log("[Nada mais a fazer]", LOG, False, LOG_FILE)
 driver.quit()
+_funcoes.log("-> [Fechando ChromeDriver]", LOG, False, LOG_FILE)
 conn.close()
+_funcoes.log("-> [Fechando DB]", LOG, False, LOG_FILE)
 os.remove(restore_file)
+_funcoes.log("-> [Removendo Restore_File]", LOG, True, LOG_FILE)
